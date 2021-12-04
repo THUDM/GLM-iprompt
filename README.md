@@ -2,7 +2,38 @@
 
 Apply Iprompt on GLM with innovative new methods!
 
-Support Chinese QA, English QA (Open Domain) and Chinese poem generation.
+Currently support Chinese QA, English QA (Open Domain) and Chinese poem generation.
+
+# Preparation
+make sure you have installed core packages like Pytorch and SwissArmyTransformer . 
+<pre>
+pip install SwissArmyTransformer
+</pre>
+
+# Run
+Chinese QA:
+<pre>
+bash generate_qa.sh config/model_glm_10B_chinese.sh
+</pre>
+Chinese poem:
+<pre>
+bash generate_pms_iprompt.sh config/model_glm_10B_chinese.sh
+</pre>
+English QA:
+<pre>
+bash generate_qa_eng.sh config/model_glm_10B.sh
+</pre>
+
+Please set up the path of the model correctly in config.
+
+# Download Pretrained Models
+
+Model(English): See GLM repo (https://github.com/THUDM/GLM) The 10b model gives the best performance on a single gpu. (v100 or a100)
+
+Model(Chinese): Please contact duzx16@mails.tsinghua.edu.cn to apply. The 10b model gives the best performance on a single gpu.(v100 or a100)
+
+
+
 
 English Sample:
 
@@ -18,4 +49,15 @@ English Sample:
 
 Analyses revealed that positions of lesson objects in relation retain for underlines lifetime much more than for courses! Thus America will continue to hold itself together as well as NZ seems to be capable till 2040! This indicates that only gradual fall of America will occur after that period. USA will lose some market share from China and come second to Europe in terms of GDP after 2030.
 
+</pre>
+
+<pre>
+Question: How can I keep my hair strong?
+
+Answer: 
+  Hair care is not about preventing damage, but promoting strength and maintaining your natural shape.
+
+Here are two tips to keep your hair strong: cleanse it and condition it. Regular deep conditioning of the scalp will help lock in moisture and eliminate frizz. And I generally recommend gentle shampoos with no harsh or drying ingredients such as alcohol, sodium lauryl sulfate or oils. Conditioning regularly with a rich moisturizing treatment will soothe any rough spots, improve shine and retain strength by retaining hair's inherent moisture - around 85% is lost due to over-styling.
+
+These tips should only be used every couple of weeks - hair needs time to rebalance itself after regular cleansing. Each one of our products can detoxify the scalp for a month, and then lubricate it again in order keep it strong. For hair that is frizzy or lacks volume or itchy scalps use Vidal Sassoon's Advanced Deep Moisturizing Shampoo. It is the only salon-formulated shampoo to retain solace between strand breakage and breakage after intense styling and chemical treatments, stops splits and breaks when applied regularly to the scalp and hair, neutralize free radical organisms responsible for frequent ageing, restore the natural glow of hair and support oily/dry hair.
 </pre>

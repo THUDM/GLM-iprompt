@@ -74,7 +74,7 @@ def main(args):
     else:
         raise ValueError(f'unknown strategy {args.sampling_strategy}')
     strategy.set_model(model)
-    def qagen(title,desc=None,author='华智冰'):
+    def qagen(title,desc=None,author='令狐冲'):
         strategy._init_cache()
         desc_str=''
         if ' ' in title:
@@ -245,7 +245,7 @@ def main(args):
             #print(poem)
         print(new_answer)
         return new_answer
-    def process(title,author='华智冰',desc=None):
+    def process(title,author='令狐冲',desc=None):
         answer=qagen(title)
         desc_str=''
         if desc is not None:
@@ -258,7 +258,7 @@ def main(args):
         
         
         prev_answer=answer
-        
+        '''
         for i in range(10):
             print("Refinement process ",i+1,":")
             add_potential_ends()
@@ -266,6 +266,7 @@ def main(args):
             if answer==prev_answer:
                 return 0
             prev_answer=answer
+        '''
         return 0
         
     generate_continually(process, args.input_source)

@@ -31,7 +31,7 @@ Please set up the path of the model correctly in config.
 
 Model(English): See GLM repo (https://github.com/THUDM/GLM) The 10b model gives the best performance on a single gpu. 
 
-Model(Chinese): Please contact duzx16@mails.tsinghua.edu.cn to apply. The 10b model gives the best performance on a single gpu. 
+Model(Chinese): Please contact zoux18@mails.tsinghua.edu.cn to apply. The 10b model gives the best performance on a single gpu. 
 
 
 

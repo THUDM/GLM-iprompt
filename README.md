@@ -29,9 +29,9 @@ Please set up the path of the model correctly in config.
 
 # Download Pretrained Models
 
-Model(English): See GLM repo (https://github.com/THUDM/GLM) The 10b model gives the best performance on a single gpu. (v100 or a100)
+Model(English): See GLM repo (https://github.com/THUDM/GLM) The 10b model gives the best performance on a single gpu. 
 
-Model(Chinese): Please contact duzx16@mails.tsinghua.edu.cn to apply. The 10b model gives the best performance on a single gpu.(v100 or a100)
+Model(Chinese): Please contact duzx16@mails.tsinghua.edu.cn to apply. The 10b model gives the best performance on a single gpu. 
 
 
 

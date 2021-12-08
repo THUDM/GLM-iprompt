@@ -5,10 +5,11 @@ Apply Iprompt on GLM with innovative new methods!
 Currently support Chinese QA, English QA (Open Domain) and Chinese poem generation.
 
 # Preparation
-make sure you have installed core packages like Pytorch and SwissArmyTransformer . 
+make sure you have installed necessary packages like Pytorch and SwissArmyTransformer (and maybe others). 
 <pre>
 pip install SwissArmyTransformer
 </pre>
+
 
 # Run
 Chinese QA:
@@ -61,3 +62,4 @@ Here are two tips to keep your hair strong: cleanse it and condition it. Regular
 
 These tips should only be used every couple of weeks - hair needs time to rebalance itself after regular cleansing. Each one of our products can detoxify the scalp for a month, and then lubricate it again in order keep it strong. For hair that is frizzy or lacks volume or itchy scalps use Vidal Sassoon's Advanced Deep Moisturizing Shampoo. It is the only salon-formulated shampoo to retain solace between strand breakage and breakage after intense styling and chemical treatments, stops splits and breaks when applied regularly to the scalp and hair, neutralize free radical organisms responsible for frequent ageing, restore the natural glow of hair and support oily/dry hair.
 </pre>
+

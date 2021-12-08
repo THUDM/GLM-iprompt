@@ -1,6 +1,6 @@
 # GLM-iprompt
 
-Apply Iprompt on GLM(https://github.com/THUDM/GLM) with innovative new methods!
+Apply Iprompt on GLM with innovative new methods!
 
 Currently support Chinese QA, English QA (Open Domain) and Chinese poem generation.
 

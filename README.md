@@ -65,11 +65,13 @@ These tips should only be used every couple of weeks - hair needs time to rebala
 
 # References
 GLM:https://github.com/THUDM/GLM
+
 All NLP Tasks Are Generation Tasks: A General Pretraining Framework
 
 Zhengxiao Du, Yujie Qian, Xiao Liu, Ming Ding, Jiezhong Qiu, Zhilin Yang, Jie Tang
 
 iPrompt: https://github.com/THUDM/iPrompt
+
 Controllable Generation from Pre-Trained Language Models via Inverse Prompting
 
 Xu Zou, Da Yin, Qingyang Zhong, Hongxia Yang, Zhilin Yang, Jie Tang

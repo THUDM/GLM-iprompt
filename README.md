@@ -5,7 +5,7 @@ Apply Iprompt on GLM with innovative new methods!
 Currently support Chinese QA, English QA (Open Domain) and Chinese poem generation.
 
 # Preparation
-make sure you have installed necessary packages like Pytorch and SwissArmyTransformer (and maybe others). 
+make sure you have installed necessary packages like Pytorch and SwissArmyTransformer (and maybe others like jsonlines). 
 <pre>
 pip install SwissArmyTransformer
 </pre>

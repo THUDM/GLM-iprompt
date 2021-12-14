@@ -11,18 +11,18 @@ pip install SwissArmyTransformer
 </pre>
 
 
-# Run
+# Run (Assuming using GPU:0)
 Chinese QA:
 <pre>
-bash generate_qa.sh config/model_glm_10B_chinese.sh
+bash generate_qa.sh config/model_glm_10B_chinese.sh 0
 </pre>
 Chinese poem:
 <pre>
-bash generate_pms_iprompt.sh config/model_glm_10B_chinese.sh
+bash generate_pms_iprompt.sh config/model_glm_10B_chinese.sh 0
 </pre>
 English QA:
 <pre>
-bash generate_qa_eng.sh config/model_glm_10B.sh
+bash generate_qa_eng.sh config/model_glm_10B.sh 0
 </pre>
 
 Please set up the path of the model correctly in config.

@@ -7,7 +7,7 @@ Currently support Chinese QA, English QA (Open Domain) and Chinese poem generati
 # Preparation
 make sure you have installed necessary packages like Pytorch and SwissArmyTransformer (and maybe others like jsonlines). 
 <pre>
-pip install SwissArmyTransformer
+pip install SwissArmyTransformer==0.1.2
 </pre>
 
 

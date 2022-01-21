@@ -33,6 +33,8 @@ Model(English): See GLM repo (https://github.com/THUDM/GLM) The 10b model gives 
 
 Model(Chinese): Please contact zoux18@mails.tsinghua.edu.cn to apply. The 10b model gives the best performance on a single gpu. 
 
+Update(1.21,2021): Poem-specific model is now available. Please contact zoux18@mails.tsinghua.edu.cn to apply.
+
 
 
 

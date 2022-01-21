@@ -26,6 +26,7 @@ from SwissArmyTransformer.model.mixins import CachedAutoregressiveMixin
 from SwissArmyTransformer.generation.autoregressive_sampling import filling_sequence
 from SwissArmyTransformer.generation.sampling_strategies import BeamSearchStrategy, BaseStrategy
 from SwissArmyTransformer.generation.utils import timed_name, generate_continually
+from multigen import MultigenStrategy
 
 
 def get_masks_and_position_ids_glm(seq, mask_position, context_length):
@@ -65,6 +66,8 @@ def main(args):
         strategy = BaseStrategy(temperature=args.temperature, top_k=args.top_k,end_tokens=end_tokens)
     elif args.sampling_strategy == 'BeamSearchStrategy':
         strategy = BeamSearchStrategy(args.batch_size, length_penalty=args.length_penalty, consider_end=True, end_tokens=end_tokens, no_repeat_ngram_size=args.no_repeat_ngram_size, min_tgt_length=args.min_tgt_length)
+    elif args.sampling_strategy == 'MultigenStrategy':
+        strategy = MultigenStrategy(args.batch_size, consider_end=True, end_tokens=end_tokens, no_repeat_ngram_size=args.no_repeat_ngram_size, min_tgt_length=args.min_tgt_length)
     else:
         raise ValueError(f'unknown strategy {args.sampling_strategy}')
     
@@ -106,7 +109,7 @@ def main(args):
             output_list = []
             att_weights=torch.zeros((args.out_seq_length,args.out_seq_length)).cuda()
             ll=mask_position-5
-            att_weights[:,3:mask_position-2]=5/(5+ll)
+            att_weights[:,:mask_position-2]=5/(5+ll)
             for tim in range(max(args.batch_size // mbz, 1)):
                 input_seq = torch.cuda.LongTensor(
                     seq + [tokenizer.get_command('sop').Id] + [-1] * (args.out_seq_length - len(seq) - 1),

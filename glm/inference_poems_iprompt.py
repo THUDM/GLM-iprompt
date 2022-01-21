@@ -70,7 +70,7 @@ def main(args):
     elif args.sampling_strategy == 'BeamSearchStrategy':
         strategy = BeamSearchStrategy(args.batch_size, length_penalty=args.length_penalty, consider_end=True, end_tokens=raw_end_tokens, no_repeat_ngram_size=args.no_repeat_ngram_size, min_tgt_length=0,verifier=poem_verifier)
     elif args.sampling_strategy == 'iPromptSearchStrategy':
-        strategy = iPromptStrategy(args.batch_size, length_penalty=args.length_penalty, consider_end=True, end_tokens=raw_end_tokens, no_repeat_ngram_size=args.no_repeat_ngram_size, min_tgt_length=0,verifier=poem_verifier,tmp_factor=1.03)
+        strategy = iPromptStrategy(args.batch_size, length_penalty=args.length_penalty, consider_end=True, end_tokens=raw_end_tokens, no_repeat_ngram_size=args.no_repeat_ngram_size, min_tgt_length=0,verifier=poem_verifier,tmp_factor=1.1,factor=0,end_factor=0.15)
     else:
         raise ValueError(f'unknown strategy {args.sampling_strategy}')
     strategy.set_model(model)
@@ -97,7 +97,7 @@ def main(args):
         raw_text=raw_text+title
         len2=len(tokenizer.EncodeAsIds(raw_text).tokenization)+1
         strategy.set_end(len2)
-        raw_text=raw_text+' 原文:[gMASK]'
+        raw_text=raw_text+' 正文:[gMASK]'
         seq = tokenizer.EncodeAsIds(raw_text).tokenization
         seq = [tokenizer.get_command('ENC').Id] + seq
         strategy.set_gen_pos(len(seq)-1)
@@ -157,7 +157,7 @@ def main(args):
                         mems=mems,
                         end_tokens=end_tokens,
                         use_ip=1,
-                        weight=0.78
+                        weight=0.5
                         )
                 #print(output[0])
                 decoded_output=tokenizer.DecodeIds(output[0].tolist())
@@ -242,7 +242,7 @@ def main(args):
                         mems=None,
                         end_tokens=end_tokens,
                         use_ip=0,
-                        weight=0.9,
+                        weight=0.5,
                         excess_beam=[sp]
                         )
             decoded_output=tokenizer.DecodeIds(output[0].tolist())
@@ -260,7 +260,7 @@ def main(args):
             tt=title.split()[0]
             author=title.split()[1]
             title=tt
-        raw_text=title+' 作者:'+author+' 体裁:诗歌'+emo_str+' 题名:'+title+' 原文:'
+        raw_text=title+' 作者:'+author+' 体裁:诗歌'+emo_str+' 题名:'+title+' 正文:'
         
         prev_poem=poem
         for i in range(15):
@@ -374,7 +374,7 @@ def generate_sentence(
             #print(st)
             new_beam=torch.cat((seq[:cl],torch.LongTensor(encodedst).cuda()),dim=0)
             #print(new_beam)
-            strategy._add_end_beams(0,0,new_beam)
+            strategy._add_end_beams(0,0.05,new_beam)
     return strategy.finalize(tokens, None)
     
     

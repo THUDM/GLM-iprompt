@@ -7,7 +7,7 @@ MAXSEQLEN=512
 MASTER_PORT=$(shuf -n 1 -i 10000-65535)
 
 #SAMPLING ARGS
-TEMP=0.2
+TEMP=0.9
 #If TOPK/TOPP are 0 it defaults to greedy sampling, top-k will also override top-p
 TOPK=40
 TOPP=0
@@ -17,7 +17,7 @@ script_dir=$(dirname $script_path)
 
 config_json="$script_dir/ds_config.json"
 
-python -m torch.distributed.launch --nproc_per_node=$MPSIZE --master_port $MASTER_PORT inference_glm.py \
+python -m torch.distributed.launch --nproc_per_node=$MPSIZE --master_port $MASTER_PORT inference_eng_iprompt2.py \
        --mode inference \
        --model-parallel-size $MPSIZE \
        $MODEL_ARGS \
@@ -29,9 +29,9 @@ python -m torch.distributed.launch --nproc_per_node=$MPSIZE --master_port $MASTE
        --temperature $TEMP \
        --top_k $TOPK \
        --output-path samples_glm \
-       --batch-size 2 \
-       --out-seq-length 300 \
+       --batch-size 4 \
+       --out-seq-length 500 \
        --mode inference \
        --input-source interactive \
-       --sampling-strategy BaseStrategy \
+       --sampling-strategy iPromptStrategy \
        --device $2

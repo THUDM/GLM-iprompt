@@ -40,7 +40,7 @@ def ppl(model, input_tokens, target_tokens,mask_position,sop=50006):
             input_tokens[i]=[-1]*(input_len-len(input_tokens[i]))+input_tokens[i]
     
     for i in range(bc):
-        if len(input_tokens[i])<target_len:
+        if len(target_tokens[i])<target_len:
             target_tokens[i]=target_tokens[i]+[-1]*(target_len-len(target_tokens[i]))
     
     tokens=[]

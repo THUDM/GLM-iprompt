@@ -1,7 +1,10 @@
 
 import torch
-
-old=torch.load('/workspace/xuzou/glm_pts2/blocklm-10b-chinese07-08-15-28/82000/mp_rank_00_model_states.pt', map_location='cpu')
+#path_old='/workspace/xuzou/codex-glm/192000/mp_rank_00_model_states.pt'
+#path_new='/workspace/xuzou/glm-10b-code/192000/mp_rank_00_model_states.pt'
+path_old='/workspace/xuzou/glm_pts2/blocklm-10b-chinese07-08-15-28/83000/mp_rank_00_model_states.pt'
+path_new='/workspace/xuzou/glm_pts2/83000/mp_rank_00_model_states.pt'
+old=torch.load(path_old, map_location='cpu')
 
 old['module']['transformer.word_embeddings.weight'] = old['module']['word_embeddings.weight']
 del old['module']['word_embeddings.weight']
@@ -24,5 +27,5 @@ del old['module']['transformer.block_position_embeddings.weight']
 
 
 # %%
-torch.save(old, '/workspace/xuzou/glm_pts2/82000/mp_rank_00_model_states.pt')
+torch.save(old, path_new)
 

@@ -113,25 +113,28 @@ class iPromptStrategy:
         
     
     def _add_end_beams(self, score, verify_score,beam):
-        if score==0:
+        if True:
             sop=50006
             if self.mode=='english':
                 sop=50257
             score=compute_p(self.model,self.sop_pos,[beam],sop=sop)
             if self.verifier is not None:
                 verify_score=self.verifier(beam,self.verifier_params)+verify_score
-                
+            
+            
         score = score / (len(beam)-self.sop_pos-1)
         if self.mode=='chinese':
             ip_score=compute_ip(self.model,self.ini_pos,self.iprompt_start_pos,self.iprompt_end_pos,self.gen_pos,self.sop_pos,[beam],self.verifier_params[0])
         if self.mode=='english':
             ip_score=compute_ip(self.model,self.ini_pos,self.iprompt_start_pos,self.iprompt_end_pos,self.gen_pos,self.sop_pos,[beam],self.verifier_params[0])
         #print(self.verifier_params[0].DecodeIds(beam.cpu().tolist()),score,ip_score)
+        #print(score,verify_score,ip_score)
         score=score*self.end_factor+ip_score[0]*(1-self.end_factor)+verify_score
-        
+        #print(self.verifier_params[0].DecodeIds(beam.cpu().tolist()),score)
         for i in range(len(self.end_beams), -1, -1):
             if i == 0 or score < self.end_beams_penalized_scores[i-1]:
                 break
+        #print(self.verifier_params[0].DecodeIds(beam.cpu().tolist()),score)
         self.end_beams.insert(i, beam)
         self.end_beams_penalized_scores.insert(i, score)
 
@@ -219,6 +222,8 @@ class iPromptStrategy:
                     break
                 if ban_end and next_tokens[i]>=self.max_set:
                     continue
+                if next_tokens[i]>=self.max_set+10:
+                    continue
                 beam = torch.cat((tokens[next_indices[i]], next_tokens[i:i+1]))
                 #print(beam,vocab_size,logits.shape)
                 if self.verifier is not None:
@@ -237,7 +242,7 @@ class iPromptStrategy:
                     beam_continue.append(beam)
                     mems_continue.append(mems[:, next_indices[i]])
                         # update caches
-                    scores_continue.append(next_token_scores[i])
+                    scores_continue.append(sampled_scores[i])
                     verify_scores.append(verify_score)
                     if self.ngram > 0:
                         bans = self.cached_beam_ngram_bans[next_indices[i]].copy()

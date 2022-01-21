@@ -25,9 +25,11 @@ from SwissArmyTransformer.generation.autoregressive_sampling import get_masks_an
 from SwissArmyTransformer.model import GLMModel
 from SwissArmyTransformer.model.mixins import CachedAutoregressiveMixin
 from beam_search_strategy import BeamSearchStrategy
+from iprompt import iPromptStrategy
 from SwissArmyTransformer.generation.sampling_strategies import BaseStrategy
 from SwissArmyTransformer.generation.utils import timed_name, generate_continually
 from pynvml import *
+from poem_verifier import eng_verifier
 
 
 def get_masks_and_position_ids_glm(seq, mask_position, context_length):
@@ -67,25 +69,44 @@ def main(args):
     if args.sampling_strategy == 'BaseStrategy':
         strategy = BaseStrategy(temperature=args.temperature, top_k=args.top_k,end_tokens=end_tokens)
     elif args.sampling_strategy == 'BeamSearchStrategy':
-        strategy = BeamSearchStrategy(args.batch_size, length_penalty=args.length_penalty, consider_end=True, end_tokens=raw_end_tokens, no_repeat_ngram_size=args.no_repeat_ngram_size, min_tgt_length=0,verifier=poem_verifier)
+        strategy = BeamSearchStrategy(args.batch_size, length_penalty=args.length_penalty, consider_end=True, end_tokens=raw_end_tokens, no_repeat_ngram_size=args.no_repeat_ngram_size, min_tgt_length=0)
+    elif args.sampling_strategy == 'iPromptStrategy':
+        strategy = iPromptStrategy(args.batch_size, length_penalty=args.length_penalty, consider_end=True, end_tokens=raw_end_tokens, no_repeat_ngram_size=args.no_repeat_ngram_size, min_tgt_length=0,mode='english',verifier=eng_verifier)
     else:
         raise ValueError(f'unknown strategy {args.sampling_strategy}')
+    strategy.set_model(model)
+    def qagen(title,desc=None,mode='qa'):
+        strategy._init_cache()
+        desc_str=''
     
-    def poemgen(title,author='李白',emo=None):
-        if args.with_id:
-            query_id, raw_text = raw_text.split('\t')
-        emo_str=''
+        if desc is not None:
+            desc_str=' Reference:'+desc
         
-        if emo is not None:
-            emo_str=' 情感：'+emo
+        strategy.set_end_tokens(raw_end_tokens)
         
-        raw_text=title+' 作者:'+author+' 体裁:诗歌'+emo_str+' 题名:'+title+' 正文:'
+        strategy.set_ini_pos(1)
+        if mode=='qa':
+            raw_text='Question: '
+        if mode=='par':
+            raw_text='Title: '
+        len1=len(tokenizer.EncodeAsIds(raw_text).tokenization)+1
+        strategy.set_start(len1)
+        raw_text=raw_text+title
+        len2=len(tokenizer.EncodeAsIds(raw_text).tokenization)+1
+        strategy.set_end(len2)
+        if mode=='qa':
+            raw_text=raw_text+desc_str+' Answer:'
+        if mode=='par':
+            raw_text=raw_text+desc_str+' Context:'
+        pretext=raw_text
      
         generation_mask = '[gMASK]' if args.task_mask else '[MASK]'
         if 'MASK]' not in raw_text:
             raw_text += ' ' + generation_mask
         seq = tokenizer.EncodeAsIds(raw_text).tokenization
         seq = [tokenizer.get_command('ENC').Id] + seq
+        strategy.set_gen_pos(len(seq)-1)
+        strategy.set_sop_pos(len(seq))
         if not raw_text.endswith('MASK]'):
             seq = seq + [tokenizer.get_command('eos').Id]
         print('raw text: {}\n'.format(raw_text))
@@ -111,131 +132,145 @@ def main(args):
                     device=args.device)
                 
             
-            end_tokens=raw_end_tokens+[tokenizer.TokenToId('。'),tokenizer.TokenToId('.')]
-            endtk=['.','。']
-            vparam=[tokenizer,dict,shengdict,2,2,5,7,endtk,'']
+            end_tokens=raw_end_tokens
+            
+            vparam=[tokenizer]
             strategy.set_verifier_params(vparam)
-            mems=None
-            yayun=''
-            rhy=2
-            for id in range(8):
-                if '。' in endtk:
-                    endtk=[',','，']
-                    end_tokens=[tokenizer.TokenToId(',')]
-                else:
-                    end_tokens=[tokenizer.TokenToId('。'),tokenizer.TokenToId('.')]
-                    endtk=['.','。']
-                strategy.set_end_tokens(end_tokens)
-                strategy.set_verifier_param(endtk,7)
-                
-                if id%2==0:
-                    strategy.set_verifier_param('',8)
-                else:
-                    strategy.set_verifier_param(yayun,8)
-                if id>0:
-                    strategy.set_verifier_param(1-id%2,4)
-                if rhy!=2:
-                    if id%2==1:
-                        strategy.set_verifier_param(1-rhy,3)
-                #print(input_seq)
-                output,mems = generate_sentence(model, input_seq,
+            
+            
+            pos=strategy.get_pos()
+            output,mems = generate_sentence(model, input_seq,
                         args.batch_size,tokenizer,
                         strategy=strategy,
-                        log_attention_weights=None,
+                        pos=strategy.get_pos(),
                         get_masks_and_position_ids=get_func,
-                        mems=mems,
-                        end_tokens=end_tokens
+                        mems=None,
+                        weight=0.65,
+                        end_tokens=end_tokens,
+                        
                         )
-                #print(output[0])
-                decoded_output=tokenizer.DecodeIds(output[0].tolist())
-                if id==7:
-                    print(decoded_output.split('>')[-1])
-                yayun,rhy,length=verify_rhy(decoded_output,id,shengdict,yayun,rhy)
-                if id==0:
-                    strategy.set_verifier_param(length,5)
-                    strategy.set_verifier_param(length,6)
-                strategy._init_cache()
-              
-                input_seq[:len(output[0])]=output[0]
-                mems=None
-                
-                
+            #print(output)
+            decoded_output=tokenizer.DecodeIds(output[0].tolist())
+            if '<|end' in decoded_output:
+                decoded_output=decoded_output.split('<|end')[0]
+            pre_text=decoded_output.split('|>')[0]
+            decoded_output=decoded_output[len(pre_text)+2:]
+            decoded_output=decoded_output.replace('<n>','\n').replace('%25','%')
+            print(decoded_output)
+            return decoded_output
+    
+    def getfirstsp(answer,pointer):
+        
+        endnote=['\n','.','!','?','"',"'"]
+        nowpt=pointer+1
+        
+        caster=True
+        add_charter=0
+        all_space=0
+        while caster:
+            nowpt+=1
+            if (nowpt<len(answer)) and(answer[nowpt]==' ')  :
+                all_space+=1
+            while (nowpt<len(answer)) and(answer[nowpt] in endnote):
+                nowpt+=1
+                if (nowpt<len(answer)) and(answer[nowpt]==' ') :
+                    all_space+=1
+                add_charter+=1
+                if all_space>=4:
+                    caster=False
+            if nowpt>=len(answer):
+                caster=False
+        nowpt-=1
+        if add_charter>1 and answer[nowpt] in ['"',"'",'“','‘']:
+            nowpt-=1
+            add_charter-=1
             
-            return yayun,rhy,length,decoded_output
-    def splitpoem(id,poem):
-        pts=0
-        num_tks=0
-        while num_tks<id:
-            if poem[pts] in [',','，','。','.']:
-                num_tks+=1
-            pts+=1
-        spbf=poem[:pts]
-        while num_tks<=id:
-            if poem[pts] in [',','，','。','.']:
-                num_tks+=1
-            pts+=1
-        spaf=poem[pts:]
+        if nowpt>=len(answer):
+            nowpt=len(answer)-1
+       #nowpt means the end of current sentence
+        return nowpt
+    def add_potential_ends():
+        endtk=['\n','.','?','!','"',"'"]
+        end_tokens=raw_end_tokens[:]
+        for i in range(50256):
+            tk=tokenizer.DecodeIds([i])
+            for w in endtk:
+                if w in tk:
+                    end_tokens.append(i)
+                   # print(tk)
+        #print(end_tokens)
+        strategy.set_end_tokens(end_tokens)
+    
         
-        return spbf,spaf
+    def refine_answer(pretext,answer):
         
-    def refine_poem(yayun,rhy,length,pretext,poem):
-        
-        endtk=['.','。']
-        for id in range(8):
+        pointer=0
+        isend=False
+        while pointer<len(answer):
             strategy._init_cache()
-            bf,af=splitpoem(id,poem)
-            if '。' in endtk:
-                endtk=[',','，']
-                end_tokens=[tokenizer.TokenToId(',')]
-            else:
-                end_tokens=[tokenizer.TokenToId('。'),tokenizer.TokenToId('.')]
-                endtk=['.','。']
-            strategy.set_end_tokens(end_tokens)
-            strategy.set_verifier_param(endtk,7)
-            if id>0:
-                strategy.set_verifier_param(1-id%2,4)
-            else:
-                strategy.set_verifier_param(2,4)
-            if id%2==1:
-                strategy.set_verifier_param(1-rhy,3)
-                rhy=1-rhy
+            nowpt=getfirstsp(answer,pointer)+1
             
-            new_prior=pretext+bf
-            new_poior='[sMASK]'+af
+            if nowpt>=len(answer):
+                isend=True
+                
+            new_prior=pretext+answer[:pointer]
+            if not(isend):
+                new_poior='[sMASK]'+answer[nowpt:]
+            else:
+                new_poior='[gMASK]'
+                strategy.set_end_tokens(raw_end_tokens)
+                
+            
             encode_prior=[tokenizer.get_command('ENC').Id] +tokenizer.EncodeAsIds(new_prior).tokenization
             encode_poior=tokenizer.EncodeAsIds(new_poior).tokenization
+            if not(isend):
+                encode_poior=encode_poior+[tokenizer.get_command('eos').Id]
             seq=encode_prior+encode_poior
+            strategy.set_gen_pos(len(encode_prior))
+            strategy.set_sop_pos(len(seq))
             get_func=partial(get_masks_and_position_ids_glm,mask_position=len(encode_prior),context_length=len(seq))
             output_list = []
             input_seq = torch.cuda.LongTensor(
                     seq + [tokenizer.get_command('sop').Id] + [-1] * (args.out_seq_length - len(seq) - 1),
                     device=args.device)
+            pos=strategy.get_pos()
+            
+            
             output,mems = generate_sentence(model, input_seq,
                         args.batch_size,tokenizer,
                         strategy=strategy,
-                        log_attention_weights=None,
+                        pos=pos,
                         get_masks_and_position_ids=get_func,
                         mems=None,
-                        end_tokens=end_tokens
+                        weight=0.75,
+                        excess_beam=[answer[pointer:nowpt]],
+                        use_ip_sep=0
                         )
-            decoded_output=tokenizer.DecodeIds(output[0].tolist())
+                        
+            
+            decoded_output=tokenizer.DecodeIds(output[0].tolist()).replace('<n>','\n').replace('%25','%')
             #print(decoded_output)
-            poem=bf+decoded_output.split('>')[-1]+af
+            new_answer=answer[:pointer]+decoded_output.split('startofpiece|>')[-1]+answer[nowpt:]
+            pointer=nowpt
             #print(poem)
-        print(poem)
-        return poem
-    def process(title,author='李白',emo=None):
-        yayun,rhy,length,poem=poemgen(title,author,emo)
-        emo_str=''
-        if emo is not None:
-            emo_str=' 情感：'+emo
+        print(new_answer)
+        return new_answer
+    def process(title,desc=None):
         
-        raw_text=title+' 作者:'+author+' 体裁:诗歌'+emo_str+' 题名: '+title+' 正文: '
-        
-        
-        for i in range(10):
-            print("Refinement process ",i+1,":")
-            poem=refine_poem(yayun,rhy,length,raw_text,poem)
+        desc_str=''
+        mode='qa'
+        if 'Ref:' in title:
+            tld=title.split('Ref:')
+            title=tld[0]
+            desc=tld[1]
+            if 'mode:' in desc:
+                des=desc.split('mode:')
+                desc=des[0]
+                mode=des[1]
+        if desc is not None:
+            desc_str=' Reference:'+desc
+        answer=qagen(title,desc=desc,mode=mode)
+       
         return 0
         
     generate_continually(process, args.input_source)
@@ -247,11 +282,14 @@ def generate_sentence(
         tokenizer,
         strategy=BaseStrategy(),
         max_memory_length=100000,
-        log_attention_weights=None,
+        pos=None,
         get_masks_and_position_ids=get_masks_and_position_ids_default,
         mems=None,
         end_tokens=[],
-        verifier_params=None
+        verifier_params=None,
+        weight=1.25,
+        excess_beam=None,
+        use_ip_sep=4
         ):
     assert len(seq.shape) == 1
 
@@ -259,6 +297,7 @@ def generate_sentence(
     context_length = 0
     while seq[context_length] >= 0:
         context_length += 1 # [0, context_length-1] are given
+    cl=context_length
     assert context_length > 0
     tokens, attention_mask, position_ids = get_masks_and_position_ids(seq)
     if len(end_tokens)>0:
@@ -270,8 +309,10 @@ def generate_sentence(
     counter = context_length - 1 # Last fixed index is ``counter''
     index = 0 if mems is None else mems.shape[2] # Next forward starting index, also the length of cache.
     # step-by-step generation
+    num_generated=0
     with torch.no_grad():
         while counter < len(seq) - 1:
+            
             # Now, we want to generate seq[counter + 1],
             # token[:, index: counter+1] needs forwarding.
 
@@ -286,8 +327,14 @@ def generate_sentence(
                 continue
 
             # forward
-            if log_attention_weights is not None:
-                log_attention_weights_part = log_attention_weights[..., index: counter+1, :counter+1] # TODO memlen
+            if pos is not None:
+                ini_pos=pos[0]
+                log_attention_weights_part=torch.zeros(counter+1).cuda()
+                st_pos=pos[1]
+                end_pos=pos[2]
+                
+                log_attention_weights_part[1:ini_pos] = weight
+                log_attention_weights_part[st_pos:end_pos] = weight
             else:
                 log_attention_weights_part = None
             
@@ -295,12 +342,23 @@ def generate_sentence(
             #    w=piece.cpu().tolist()
             #    decode_tokens = tokenizer.DecodeIds(w)
             #    print(w,decode_tokens)
+            num_generated+=1
+            use_ip=False
+            max_length=375
+            if use_ip_sep!=0:
+                if num_generated%use_ip_sep==0:
+                    use_ip=True
+            else:
+                max_length=450
+                
+                
             logits, *mem_kv = model(
                 tokens[:, index:],
                 position_ids[..., index: counter+1],
                 attention_mask[..., index: counter+1, :counter+1], # TODO memlen
                 mems=mems,
-                log_attention_weights=log_attention_weights_part
+                log_attention_weights=log_attention_weights_part,
+                
             )
             mems = update_mems(mem_kv, mems, max_memory_length=max_memory_length)
             counter += 1
@@ -308,42 +366,63 @@ def generate_sentence(
             expansion_size=len(logits)
             
             # sampling
+            ban_end=False
+            if num_generated<4:
+                ban_end=True
+            
             if expansion_size>0:
                 logits = logits[:, -1].expand(expansion_size, -1) # [batch size, vocab size]
                 tokens = tokens.expand(expansion_size, -1)
-                tokens, mems = strategy.forward(logits, tokens, mems)
+                tokens, mems = strategy.forward(logits, tokens, mems,use_ip=use_ip,ban_end=ban_end,max_length=max_length)
+            #print(counter,strategy.is_done,strategy.end_tokens)
             if strategy.is_done:
                 break
     del mems
     del logits
     torch.cuda.empty_cache()
+    if excess_beam is not None:
+        for st in excess_beam:
+            encodedst=tokenizer.EncodeAsIds(st).tokenization
+            #print(st)
+            new_beam=torch.cat((seq[:cl],torch.LongTensor(encodedst).cuda()),dim=0)
+            #print(new_beam)
+            strategy._add_end_beams(0,-0.2,new_beam)
+            
     return strategy.finalize(tokens, None)
     
+import requests
+import bs4
+
+
+def searchst(search_term):
+    subscription_key = "d5441656363f4dfdba8d2d7d5ebb95e0"
+    search_url = "https://api.bing.microsoft.com/v7.0/search"
+    headers = {"Ocp-Apim-Subscription-Key": subscription_key}
+    params = {"q": search_term, "textDecorations": True, "textFormat": "HTML"}
+    response = requests.get(search_url, headers=headers, params=params)
+    response.raise_for_status()
+    search_results = response.json()
     
-def eval_title(model,beam,tokenizer):
-    decode_tokens = tokenizer.DecodeIds(sentence.cpu().tolist())
-    poem=decode_tokens.replace('<|startofpiece|>','').replace('[gMASK]','').replace('[CLS]','')
+    possible_paras=[]
     
-    poem_entry=poem.split(':')[-1]
-    author=poem.split(':')[-4].split(' ')[0]
-    title=poem.split(' ')[0]
-    new_sentence='体裁:诗歌 作者:李白 题名:'
-    new_sentence2='[sMASK] 正文:'+poem_entry
-    new_sentence3='<|startofpiece|>'+title
-    encode_ppl=tokenizer.EncodeAsIds(new_sentence).tokenization
-    encode_pp2=tokenizer.EncodeAsIds(new_sentence2).tokenization
-    encode_target=tokenizer.EncodeAsIds(new_sentence3).tokenization
-    input_st=encode_ppl+encode_ppl2+encode_target
-    tokens, attention_mask, position_ids = get_masks_and_position_ids_glm(input_st,len(encode_ppl),len(encode_ppl)+len(encode_ppl2))
-    
-    
-    
-    mask=torch.zeros(len(input_st)).cuda()
-    input_st=torch.LongTensor(input_st).cuda()
-    mask[len(encode_ppl):]=1
-    tokens, attention_mask, position_ids = get_masks_and_position_ids_glm(seq)
-    ppl=evaluate_perplexity(model,tokens, attention_mask, position_ids, loss_mask,reduction='none')
-    return ppl
+    for v in search_results["webPages"]["value"]:
+        url=v["url"]
+        try:
+            html=requests.get(url,timeout=2.0).text
+            print(url)
+        except Exception as r:
+            print(url,r)
+            continue
+        soup=bs4.BeautifulSoup(html,'html.parser')
+        para=soup.find_all('p')
+        
+        for st in para:
+            text=st.text
+            if len(text)>2:
+                possible_paras.append(text)
+                if '\'
+    return possible_paras
+        
     
 if __name__ == "__main__":
     py_parser = argparse.ArgumentParser(add_help=False)
@@ -354,3 +433,5 @@ if __name__ == "__main__":
     
     with torch.no_grad():
         main(args)
+
+

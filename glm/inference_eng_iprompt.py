@@ -75,23 +75,34 @@ def main(args):
     else:
         raise ValueError(f'unknown strategy {args.sampling_strategy}')
     strategy.set_model(model)
-    def qagen(title,desc=None):
+    def qagen(title,desc=None,mode='qa'):
         strategy._init_cache()
         desc_str=''
     
         if desc is not None:
-            desc_str=' Description:'+desc
+            desc_str=' Reference:'+desc
         
         strategy.set_end_tokens(raw_end_tokens)
         
         strategy.set_ini_pos(1)
-        raw_text='Question: '
+        if mode=='qa':
+            raw_text='Question: '
+        if mode=='par':
+            raw_text='Title: '
+        if mode=='free':
+            raw_text=''
         len1=len(tokenizer.EncodeAsIds(raw_text).tokenization)+1
         strategy.set_start(len1)
         raw_text=raw_text+title
         len2=len(tokenizer.EncodeAsIds(raw_text).tokenization)+1
         strategy.set_end(len2)
-        raw_text=raw_text+desc_str+' Answer:'
+        if mode=='qa':
+            raw_text=raw_text+desc_str+' Answer:'
+        if mode=='par':
+            raw_text=raw_text+desc_str+' Context:'
+        if mode=='free':
+            raw_text=raw_text
+            
         pretext=raw_text
      
         generation_mask = '[gMASK]' if args.task_mask else '[MASK]'
@@ -250,24 +261,26 @@ def main(args):
         print(new_answer)
         return new_answer
     def process(title,desc=None):
-        answer=qagen(title)
+        
         desc_str=''
-        if desc is not None:
-            desc_str=' Description:'+desc
+        mode='free'
+        if 'Mode:' in title:
+            title=title.split('Mode:')
+            title=title[0][:-1]
+            mode=title[1]
+            
+        if 'Ref:' in title:
+            tld=title.split('Ref:')
+            title=tld[0]
+            desc=tld[1]
+       
+                
+        if (desc is not None) and (len(desc)!=0):
+            desc_str=' Reference:'+desc
+        title=title.replace('<n>','\n')
         
-        raw_text='Question: '+title+desc_str+' Answer:'
-        
-        
-        prev_answer=answer
-        '''
-        for i in range(10):
-            print("Refinement process ",i+1,":")
-            add_potential_ends()
-            answer=refine_answer(raw_text,answer)
-            if answer==prev_answer:
-                return 0
-            prev_answer=answer
-        '''
+        answer=qagen(title,desc=desc,mode=mode)
+       
         return 0
         
     generate_continually(process, args.input_source)

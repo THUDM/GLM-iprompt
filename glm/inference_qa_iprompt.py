@@ -74,7 +74,7 @@ def main(args):
     else:
         raise ValueError(f'unknown strategy {args.sampling_strategy}')
     strategy.set_model(model)
-    def qagen(title,desc=None,author='令狐冲'):
+    def qagen(title,desc=None,mode='qa',author='令狐冲'):
         strategy._init_cache()
         desc_str=''
         if ' ' in title:

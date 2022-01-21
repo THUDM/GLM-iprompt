@@ -76,6 +76,26 @@ def eng_verifier(sentence,verifier_params):
         return -1000
     return 0
     
+def code_verifier(sentence,verifier_params):
+    tokenizer=verifier_params[0]
+    decode_tokens = tokenizer.DecodeIds(sentence.cpu().tolist())
+    if '<|end' in decode_tokens:
+        return -1,decode_tokens.split('<|end')[0]
+    lines=decode_tokens.split('\n')
+    remaining_st=[]
+    count=0
+    for i in range(len(lines)):
+        line=lines[i]
+        
+        if len(line)>0:
+            if line[0]!=' ':
+                count+=1
+                if count>1:
+                    return -1,remaining_st
+        remaining_st=remaining_st+line+'\n'
+        
+    return 0,sentence
+    
 def poem_verifier(sentence,verifier_params,print_reason=False):
     
     tokenizer,wdic,shengdict,rhy,endrhy,min_length,max_length,end_tokens,yayun=verifier_params

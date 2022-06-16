@@ -4,7 +4,7 @@ CHECKPOINT_PATH=/dataset/fd5061f6/sat_pretrained/glm
 source $1
 MPSIZE=1
 MAXSEQLEN=512
-MASTER_PORT=$(shuf -n 1 -i 10000-65535)
+MASTER_PORT=
 
 #SAMPLING ARGS
 TEMP=0.9
@@ -17,7 +17,7 @@ script_dir=$(dirname $script_path)
 
 config_json="$script_dir/ds_config.json"
 
-python -m torch.distributed.launch --nproc_per_node=$MPSIZE --master_port $MASTER_PORT  inference_poems_iprompt.py \
+python inference_poems_iprompt.py \
        --mode inference \
        --model-parallel-size $MPSIZE \
        $MODEL_ARGS \
@@ -34,4 +34,4 @@ python -m torch.distributed.launch --nproc_per_node=$MPSIZE --master_port $MASTE
        --mode inference \
        --input-source interactive \
        --sampling-strategy iPromptSearchStrategy \
-       --device $2
+       --device $2 \

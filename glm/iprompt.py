@@ -1,9 +1,5 @@
 # -*- encoding: utf-8 -*-
 '''
-@File    :   base_strategy.py
-@Time    :   2021/10/08 22:22:42
-@Author  :   Ming Ding
-@Contact :   dm18@mail.tsinghua.edu.cn
 '''
 
 # here put the import lib
@@ -11,7 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from ppl import ppl
-def compute_ip(model,ini_pos,start_pos,end_pos,gen_pos,sop_pos,beams,tokenizer):
+def compute_ip(model,ini_pos,start_pos,end_pos,gen_pos,sop_pos,beams,tokenizer,enhanced_start=None,enhance_end=None,weight=0.5):
     #compute new beams
     new_beams=[]
     targets=[]
@@ -32,12 +28,19 @@ def compute_ip(model,ini_pos,start_pos,end_pos,gen_pos,sop_pos,beams,tokenizer):
         #print(dec,dec2)
         targets.append(new_tag)
         
-        
-            
+    counter=len(new_beams[0])+len(targets[0])
+    log_attention_weights_part=None
+    if enhanced_start is not None:
+        actual_start=1+max(0,start_pos-ini_pos)+1+max(0,gen_pos-end_pos)+(enhanced_start-sop_pos-1)
+        actual_end=1+max(0,start_pos-ini_pos)+1+max(0,gen_pos-end_pos)+(enhance_end-sop_pos-1)
+        log_attention_weights_part=torch.zeros(counter+1).cuda()   
+        log_attention_weights_part[actual_start:actual_end] = weight
     #print(input_seq,target_seq)
-    return ppl(model,new_beams,targets,1+start_pos-ini_pos,sop=sop)
+    #print(enhanced_start)
+        print(new_beams[0],actual_start,actual_end,tokenizer.DecodeIds(new_beams[0]),tokenizer.DecodeIds(new_beams[0][actual_start:actual_end]))
+    return ppl(model,new_beams,targets,1+start_pos-ini_pos,sop=sop,additional_attention=log_attention_weights_part)
 
-def compute_p(model,sop_pos,beam,sop=50006):
+def compute_p(model,sop_pos,beam,tokenizer=None,sop=50006,ini_pos=None,start_pos=None,end_pos=None,weight=0.5):
     new_beams=[]
     targets=[]
     for i  in range(len(beam)):
@@ -46,7 +49,16 @@ def compute_p(model,sop_pos,beam,sop=50006):
         new_tag=bm[sop_pos+1:]
         new_beams.append(new_bm)
         targets.append(new_tag)
-    return ppl(model,new_beams,targets,sop_pos,sop=sop)
+
+    counter=len(new_beams[0])+len(targets[0])
+    log_attention_weights_part=None
+    if ini_pos is not None:
+        log_attention_weights_part=torch.zeros(counter+1).cuda()
+        log_attention_weights_part[start_pos:end_pos] = weight
+    #if tokenizer is not None:
+    #    print(ini_pos,start_pos,end_pos,new_beams[0],new_beams[0][1:ini_pos],new_beams[0][start_pos:end_pos],tokenizer.DecodeIds(new_beams[0][1:ini_pos]),tokenizer.DecodeIds(new_beams[0][start_pos:end_pos]))
+    return ppl(model,new_beams,targets,sop_pos,sop=sop,additional_attention=log_attention_weights_part)
+
 class iPromptStrategy:
     def __init__(self, num_beams, length_penalty=1., consider_end=False,
                 end_tokens=[], invalid_slices=[], no_repeat_ngram_size=0, min_tgt_length=0,verifier=None,verifier_params=None,num_samples=12,factor=0.1,end_factor=0.1,tmp_factor=1.1,mode='chinese'):
@@ -63,6 +75,7 @@ class iPromptStrategy:
         self.iprompt_start_pos=0
         self.iprompt_end_pos=0
         self.gen_start=0
+        self.st_pos=0
         self._init_cache()
         self.factor=factor
         self.end_factor=end_factor
@@ -112,21 +125,21 @@ class iPromptStrategy:
         torch.cuda.empty_cache()
         
     
-    def _add_end_beams(self, score, verify_score,beam):
+    def _add_end_beams(self, score, verify_score,beam,enhance_start=None,enhance_end=None):
         if True:
             sop=50006
             if self.mode=='english':
                 sop=50257
-            score=compute_p(self.model,self.sop_pos,[beam],sop=sop)
+            score=compute_p(self.model,self.sop_pos,[beam],sop=sop,ini_pos=self.ini_pos,start_pos=self.iprompt_start_pos,end_pos=self.iprompt_end_pos,tokenizer=self.verifier_params[0])
             if self.verifier is not None:
                 verify_score=self.verifier(beam,self.verifier_params)+verify_score
             
             
         score = score / (len(beam)-self.sop_pos-1)
         if self.mode=='chinese':
-            ip_score=compute_ip(self.model,self.ini_pos,self.iprompt_start_pos,self.iprompt_end_pos,self.gen_pos,self.sop_pos,[beam],self.verifier_params[0])
+            ip_score=compute_ip(self.model,self.ini_pos,self.iprompt_start_pos,self.iprompt_end_pos,self.gen_pos,self.sop_pos,[beam],self.verifier_params[0],enhanced_start=enhance_start,enhance_end=enhance_end)
         if self.mode=='english':
-            ip_score=compute_ip(self.model,self.ini_pos,self.iprompt_start_pos,self.iprompt_end_pos,self.gen_pos,self.sop_pos,[beam],self.verifier_params[0])
+            ip_score=compute_ip(self.model,self.ini_pos,self.iprompt_start_pos,self.iprompt_end_pos,self.gen_pos,self.sop_pos,[beam],self.verifier_params[0],enhanced_start=enhance_start,enhance_end=enhance_end)
         #print(self.verifier_params[0].DecodeIds(beam.cpu().tolist()),score,ip_score)
         #print(score,verify_score,ip_score)
         score=score*self.end_factor+ip_score[0]*(1-self.end_factor)+verify_score
@@ -222,7 +235,7 @@ class iPromptStrategy:
                     break
                 if ban_end and next_tokens[i]>=self.max_set:
                     continue
-                if next_tokens[i]>=self.max_set+10:
+                if next_tokens[i]>=self.max_set+9:
                     continue
                 beam = torch.cat((tokens[next_indices[i]], next_tokens[i:i+1]))
                 #print(beam,vocab_size,logits.shape)
@@ -237,7 +250,7 @@ class iPromptStrategy:
                     
                 total_added+=1
                 if ((int(next_tokens[i]) in self.end_tokens) or (len(beam)>=max_length)) and not(ban_end):
-                    self._add_end_beams(next_token_scores[i],verify_score, beam)
+                    self._add_end_beams(next_token_scores[i],verify_score, beam,enhance_start=self.st_pos,enhance_end=len(beam))
                 elif len(beam_continue) < self.num_samples:
                     beam_continue.append(beam)
                     mems_continue.append(mems[:, next_indices[i]])
@@ -258,7 +271,8 @@ class iPromptStrategy:
             mems = torch.stack(mems_continue, dim=1)
             self.cached_beam_scores = torch.tensor(scores_continue, device=logits.device)
             if use_ip:
-                iprompt_scores=compute_ip(self.model,self.ini_pos,self.iprompt_start_pos,self.iprompt_end_pos,self.gen_pos,self.sop_pos,beam_continue,self.verifier_params[0])
+                current_pos=len(beam_continue[0])
+                iprompt_scores=compute_ip(self.model,self.ini_pos,self.iprompt_start_pos,self.iprompt_end_pos,self.gen_pos,self.sop_pos,beam_continue,self.verifier_params[0],enhanced_start=self.st_pos,enhance_end=current_pos)
                 self.actual_scores=self.cached_beam_scores*self.factor+iprompt_scores*(1-self.factor)+torch.tensor(verify_scores,device=logits.device)
                 self.actual_scores, _indices = torch.sort(self.actual_scores, descending=True, dim=0)
                 self.actual_scores=self.actual_scores[:self.num_beams]

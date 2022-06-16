@@ -8,4 +8,4 @@ MODEL_ARGS="--block-lm \
             --max-sequence-length 1025 \
             --tokenizer-type glm_ChineseSPTokenizer \
             --tokenizer-model-type glm-10b \
-            --load /workspace/xuzou/glm_pts2"
+            --load /sharefs/code-data/xuzou/glm_pts2"

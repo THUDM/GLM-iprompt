@@ -23,7 +23,7 @@ def getbc(seq, mask_position, context_length):
     return tokens, attention_mask, position_ids
     
     
-def ppl(model, input_tokens, target_tokens,mask_position,sop=50006):
+def ppl(model, input_tokens, target_tokens,mask_position,sop=50006,additional_attention=None):
     assert len(input_tokens)==len(target_tokens)
     bc=len(input_tokens)
     input_len=0
@@ -65,7 +65,8 @@ def ppl(model, input_tokens, target_tokens,mask_position,sop=50006):
     tokens,attention_mask,position_ids=getbc(tokens,mask_position,input_len)
     
     attention_mask = attention_mask.type_as(next(model.parameters()))
-    logits = model(tokens, position_ids, attention_mask)[0]
+    
+    logits = model(tokens, position_ids, attention_mask,log_attention_weights=additional_attention)[0]
     
     logits = logits.float()
     

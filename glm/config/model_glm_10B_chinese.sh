@@ -8,4 +8,4 @@ MODEL_ARGS="--block-lm \
             --max-sequence-length 1025 \
             --tokenizer-type glm_ChineseSPTokenizer \
             --tokenizer-model-type glm-10b \
-            --load /dataset/fd5061f6/sat_pretrained/glm/glm-10b-zh"
+            --load /sharefs/code-data/xuzou/glm-10b-zh"

@@ -8,4 +8,4 @@ MODEL_ARGS="--block-lm \
             --max-sequence-length 1025 \
             --tokenizer-model-type gpt2 \
             --tokenizer-type glm_GPT2BPETokenizer \
-            --load ${CHECKPOINT_PATH}/glm-10b-en"
+            --load /sharefs/code-data/xuzou/glm-10b-en"

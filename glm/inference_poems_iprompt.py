@@ -29,6 +29,7 @@ from iprompt import iPromptStrategy
 from SwissArmyTransformer.generation.sampling_strategies import BaseStrategy
 from SwissArmyTransformer.generation.utils import timed_name, generate_continually
 from pynvml import *
+from poem_verifier import get_last_piece
 
 
 def get_masks_and_position_ids_glm(seq, mask_position, context_length):
@@ -85,23 +86,31 @@ def main(args):
         if emo is not None:
             emo_str=' 情感：'+emo
         
-        raw_text=title+' '
+        raw_text=title
+        #print(raw_text,tokenizer.EncodeAsIds(raw_text).tokenization)
+        raw_text=raw_text+' '
         len0=len(tokenizer.EncodeAsIds(raw_text).tokenization)+1
+        #print(raw_text,tokenizer.EncodeAsIds(raw_text).tokenization)
         strategy.set_ini_pos(len0)
         raw_text=raw_text+'作者:'+author+' 体裁:'
         len00=len(tokenizer.EncodeAsIds(raw_text).tokenization)+1
-        
+        #print(raw_text,tokenizer.EncodeAsIds(raw_text).tokenization)
         raw_text=raw_text+'诗歌'+emo_str+' 题名:'
         len1=len(tokenizer.EncodeAsIds(raw_text).tokenization)+1
+        #print(raw_text,tokenizer.EncodeAsIds(raw_text).tokenization)
         strategy.set_start(len1)
         raw_text=raw_text+title
         len2=len(tokenizer.EncodeAsIds(raw_text).tokenization)+1
+        #print(raw_text,tokenizer.EncodeAsIds(raw_text).tokenization)
         strategy.set_end(len2)
-        raw_text=raw_text+' 正文:[gMASK]'
+        raw_text=raw_text+' '
+        #print(raw_text,tokenizer.EncodeAsIds(raw_text).tokenization)
+        raw_text=raw_text+'正文:[gMASK]'
         seq = tokenizer.EncodeAsIds(raw_text).tokenization
         seq = [tokenizer.get_command('ENC').Id] + seq
         strategy.set_gen_pos(len(seq)-1)
         strategy.set_sop_pos(len(seq))
+        #print(raw_text,tokenizer.EncodeAsIds(raw_text).tokenization)
     
         print('raw text: {}\n'.format(raw_text))
         if len(seq) > args.max_sequence_length:
@@ -263,7 +272,9 @@ def main(args):
         raw_text=title+' 作者:'+author+' 体裁:诗歌'+emo_str+' 题名:'+title+' 正文:'
         
         prev_poem=poem
-        for i in range(15):
+        #num_ref=15
+        num_ref=15
+        for i in range(num_ref):
             print("Refinement process ",i+1,":")
             poem=refine_poem(yayun,rhy,length,raw_text,poem,wt=i)
             if poem==prev_poem:
@@ -308,6 +319,7 @@ def generate_sentence(
     index = 0 if mems is None else mems.shape[2] # Next forward starting index, also the length of cache.
     # step-by-step generation
     ban_end=False
+    strategy.st_pos=context_length
     with torch.no_grad():
         while counter < len(seq) - 1:
             # Now, we want to generate seq[counter + 1],
@@ -330,7 +342,6 @@ def generate_sentence(
                 st_pos=pos[1]
                 end_pos=pos[2]
                 
-                log_attention_weights_part[1:ini_pos] = weight
                 log_attention_weights_part[st_pos:end_pos] = weight
             else:
                 log_attention_weights_part = None
@@ -367,14 +378,16 @@ def generate_sentence(
     del logits
     torch.cuda.empty_cache()
     
-      
+  
+
     if excess_beam is not None:
         for st in excess_beam:
             encodedst=tokenizer.EncodeAsIds(st).tokenization
+        
             #print(st)
             new_beam=torch.cat((seq[:cl],torch.LongTensor(encodedst).cuda()),dim=0)
             #print(new_beam)
-            strategy._add_end_beams(0,0.05,new_beam)
+            strategy._add_end_beams(0,0,new_beam,enhance_start=cl,enhance_end=cl+len(encodedst))
     return strategy.finalize(tokens, None)
     
     

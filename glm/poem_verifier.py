@@ -99,8 +99,17 @@ def code_verifier(sentence,verifier_params):
 def poem_verifier(sentence,verifier_params,print_reason=False):
     
     tokenizer,wdic,shengdict,rhy,endrhy,min_length,max_length,end_tokens,yayun=verifier_params
-   
-    decode_tokens = tokenizer.DecodeIds(sentence.cpu().tolist())
+    try:
+        decode_tokens = tokenizer.DecodeIds(sentence.cpu().tolist())
+    except:
+        ww=sentence.cpu().tolist()
+        print(ww)
+        for wd in ww:
+            try:
+                decode_tokens = tokenizer.DecodeIds([wd])
+            except:
+                print(wd)
+        
     decode_token=get_last_piece(decode_tokens)
     icount=0
     
